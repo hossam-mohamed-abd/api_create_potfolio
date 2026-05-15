@@ -2,123 +2,115 @@ import rateLimit from "express-rate-limit";
 
 const limiter = rateLimit({
 
-  windowMs:
-    24 * 60 * 60 * 1000,
+    windowMs:
+        24 * 60 * 60 * 1000,
 
-  max: 1,
+    max: 1,
 
-  message: {
-    success: false,
-    message:
-      "Daily limit reached"
-  },
+    message: {
+        success: false,
+        message:
+            "Daily limit reached"
+    },
 
-  standardHeaders: true,
+    standardHeaders: true,
 
-  legacyHeaders: false
+    legacyHeaders: false
 
 });
 
-function runMiddleware(req, res, fn){
+function runMiddleware(req, res, fn) {
 
-  return new Promise((resolve, reject)=>{
+    return new Promise((resolve, reject) => {
 
-    fn(req, res, result=>{
+        fn(req, res, result => {
 
-      if(result instanceof Error){
+            if (result instanceof Error) {
 
-        return reject(result);
+                return reject(result);
 
-      }
+            }
 
-      return resolve(result);
+            return resolve(result);
+
+        });
 
     });
-
-  });
 
 }
 
-export default async function handler(req, res){
+export default async function handler(req, res) {
 
-  /*
-    Allow CORS
-  */
-
-  res.setHeader(
-    "Access-Control-Allow-Origin",
-    "*"
-  );
-
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "POST, OPTIONS"
-  );
-
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type"
-  );
-
-  /*
-    Handle OPTIONS
-  */
-
-  if(req.method === "OPTIONS"){
-
-    return res.status(200).end();
-
-  }
-
-  /*
-    POST only
-  */
-
-  if(req.method !== "POST"){
-
-    return res.status(405).json({
-
-      success:false,
-      message:"Method not allowed"
-
-    });
-
-  }
-
-  try{
-
-    /*
-      Rate limit
-    */
-
-    await runMiddleware(
-      req,
-      res,
-      limiter
+    res.setHeader(
+        "Access-Control-Allow-Origin",
+        "*"
     );
 
-    const {
+    res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET, POST, OPTIONS"
+    );
 
-      cvBase64,
-      htmlTemplate
+    res.setHeader(
+        "Access-Control-Allow-Headers",
+        "*"
+    );
 
-    } = req.body;
+    if (req.method === "OPTIONS") {
 
-    if(
-      !cvBase64 ||
-      !htmlTemplate
-    ){
-
-      return res.status(400).json({
-
-        success:false,
-        message:"Missing data"
-
-      });
+        return res.status(200).end();
 
     }
 
-    const prompt = `
+    /*
+      POST only
+    */
+
+    if (req.method !== "POST") {
+
+        return res.status(405).json({
+
+            success: false,
+            message: "Method not allowed"
+
+        });
+
+    }
+
+    try {
+
+        /*
+          Rate limit
+        */
+
+        await runMiddleware(
+            req,
+            res,
+            limiter
+        );
+
+        const {
+
+            cvBase64,
+            htmlTemplate
+
+        } = req.body;
+
+        if (
+            !cvBase64 ||
+            !htmlTemplate
+        ) {
+
+            return res.status(400).json({
+
+                success: false,
+                message: "Missing data"
+
+            });
+
+        }
+
+        const prompt = `
 
 You are a senior frontend developer
 and AI portfolio builder.
@@ -200,68 +192,68 @@ ${htmlTemplate}
 
     `;
 
-    const response = await fetch(
+        const response = await fetch(
 
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-      process.env.GEMINI_API_KEY,
-
-      {
-
-        method:"POST",
-
-        headers:{
-          "Content-Type":"application/json"
-        },
-
-        body:JSON.stringify({
-
-          contents:[
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
+            process.env.GEMINI_API_KEY,
 
             {
 
-              parts:[
+                method: "POST",
 
-                {
-                  text:prompt
+                headers: {
+                    "Content-Type": "application/json"
                 },
 
-                {
-                  inlineData:{
-                    mimeType:"application/pdf",
-                    data:cvBase64
-                  }
-                }
+                body: JSON.stringify({
 
-              ]
+                    contents: [
+
+                        {
+
+                            parts: [
+
+                                {
+                                    text: prompt
+                                },
+
+                                {
+                                    inlineData: {
+                                        mimeType: "application/pdf",
+                                        data: cvBase64
+                                    }
+                                }
+
+                            ]
+
+                        }
+
+                    ]
+
+                })
 
             }
 
-          ]
+        );
 
-        })
+        const data =
+            await response.json();
 
-      }
+        return res.status(200).json(data);
 
-    );
+    }
 
-    const data =
-      await response.json();
+    catch (error) {
 
-    return res.status(200).json(data);
+        console.error(error);
 
-  }
+        return res.status(500).json({
 
-  catch(error){
+            success: false,
+            message: "Server error"
 
-    console.error(error);
+        });
 
-    return res.status(500).json({
-
-      success:false,
-      message:"Server error"
-
-    });
-
-  }
+    }
 
 }
