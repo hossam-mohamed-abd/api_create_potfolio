@@ -5,7 +5,7 @@ const limiter = rateLimit({
     windowMs:
         24 * 60 * 60 * 1000,
 
-    max: 1,
+    max: 100,
 
     message: {
         success: false,
